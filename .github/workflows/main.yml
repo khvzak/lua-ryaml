@@ -1,0 +1,132 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-latest]
+        rust: [stable]
+        lua: [lua54, lua53, lua52, lua51, luajit]
+        include:
+        - os: ubuntu-20.04
+          target: x86_64-unknown-linux-gnu
+        - os: macos-latest
+          target: x86_64-apple-darwin
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        target: ${{ matrix.target }}
+        override: true
+    - name: Run ${{ matrix.lua }} tests
+      run: |
+        cargo build --features "${{ matrix.lua }},vendored"
+        (cd testcrate && cargo test --features ${{ matrix.lua }})
+      shell: bash
+
+  test_module:
+    name: Test module
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-latest]
+        rust: [stable]
+        include:
+        - os: ubuntu-20.04
+          target: x86_64-unknown-linux-gnu
+        - os: macos-latest
+          target: x86_64-apple-darwin
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        target: ${{ matrix.target }}
+        override: true
+    - name: Install dependencies (macos)
+      if: ${{ matrix.os == 'macos-latest' }}
+      run: |
+        brew install lua luarocks
+        luarocks make
+      shell: bash
+    - name: Install dependencies
+      if: ${{ matrix.os != 'macos-latest' }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl lua5.3 liblua5.3-dev unzip build-essential
+        curl -L -O https://luarocks.org/releases/luarocks-3.7.0.tar.gz
+        tar xpf luarocks-3.7.0.tar.gz && cd luarocks-3.7.0 && ./configure && make && sudo make install && cd .. && rm -rf luarocks-3.7.0*
+        sudo chown -R $UID /usr/local
+        luarocks make
+      shell: bash
+    - name: Run module inside Lua
+      run: lua -l ryaml -e 'print(ryaml.encode({}))'
+
+  test_module_windows:
+    name: Test module on Windows
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        rust: [stable]
+        include:
+        - os: windows-latest
+          target: x86_64-pc-windows-msvc
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        target: ${{ matrix.target }}
+        override: true
+    - name: Install dependencies
+      run: |
+        curl -L -O "https://sourceforge.net/projects/luabinaries/files/5.3.6/Tools%20Executables/lua-5.3.6_Win64_bin.zip"
+        unzip lua-5.3.6_Win64_bin.zip -d /c/lua
+        curl -L -O "https://sourceforge.net/projects/luabinaries/files/5.3.6/Windows%20Libraries/Dynamic/lua-5.3.6_Win64_dllw6_lib.zip"
+        unzip -n lua-5.3.6_Win64_dllw6_lib.zip -d /c/lua
+        curl -L -O https://luarocks.org/releases/luarocks-3.7.0-windows-64.zip
+        unzip -j luarocks-3.7.0-windows-64.zip -d /c/lua
+        mkdir /c/lua/bin /c/lua/lib
+        mv /c/lua/*.exe /c/lua/bin
+        mv /c/lua/lua53.dll /mingw64/bin
+        mv /c/lua/liblua53.a /c/lua/lib/lua53.lib
+        rm -rf lua-5.3.6* luarocks-3.7.0*
+        /c/lua/bin/luarocks --tree=/c/lua make
+      shell: bash
+    - name: Run module inside Lua
+      run: /c/lua/bin/lua53 -l ryaml -e 'print(ryaml.encode({}))'
+      shell: bash
+
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt
+        override: true
+    - run: cargo fmt -- --check
+
+  clippy:
+    name: Clippy check
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        lua: [lua54, lua53, lua52, lua51, luajit]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            components: clippy
+            override: true
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --features "${{ matrix.lua }},vendored"

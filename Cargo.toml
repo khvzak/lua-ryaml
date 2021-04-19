@@ -1,0 +1,31 @@
+[package]
+name = "lua-ryaml"
+version = "0.1.0"
+authors = ["Aleksandr Orlenko <zxteam@pm.me>"]
+edition = "2018"
+publish = ["git"]
+
+[workspace]
+members = [
+    "testcrate",
+]
+
+[features]
+lua54 = ["mlua/lua54"]
+lua53 = ["mlua/lua53"]
+lua52 = ["mlua/lua52"]
+lua51 = ["mlua/lua51"]
+luajit = ["mlua/luajit"]
+vendored = ["mlua/vendored"]
+
+[lib]
+name = "ryaml"
+crate-type = ["cdylib"]
+
+[dependencies]
+mlua = { version = "0.5.4", features = ["module", "send", "serialize"] }
+serde = "1.0"
+serde_yaml = "0.8"
+
+[dev-dependencies]
+mlua = { version = "0.5.4", features = ["send", "serialize"] }
