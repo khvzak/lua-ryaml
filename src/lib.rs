@@ -5,7 +5,7 @@ use serde::Serialize;
 fn decode<'lua>(lua: &'lua Lua, s: Value<'lua>) -> Result<Value<'lua>> {
     let s = match s {
         Value::String(ref s) => Ok(s.as_bytes()),
-        _ => Err(format!("invalid input type: {}", s.type_name()).to_lua_err()),
+        _ => Err(format!("invalid input type: {}", s.type_name()).into_lua_err()),
     }?;
     let yaml_value = serde_yaml::from_slice::<serde_yaml::Value>(s)
         .map_err(|e| Error::external(e.to_string()))?;
@@ -30,8 +30,8 @@ fn make_exports<'lua>(
     exports.set("decode", decode)?;
     exports.set("dump", encode.clone())?;
     exports.set("encode", encode)?;
-    exports.set("null", lua.null()?)?;
-    exports.set("array_mt", lua.array_metatable()?)?;
+    exports.set("null", lua.null())?;
+    exports.set("array_mt", lua.array_metatable())?;
     Ok(exports)
 }
 

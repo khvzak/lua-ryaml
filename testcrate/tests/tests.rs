@@ -42,11 +42,11 @@ fn test_encode_error() -> Result<()> {
         r#"
         local yaml = require("ryaml")
         local ok, err = pcall(yaml.encode, function() end)
-        assert(not(ok) and tostring(err) == "cannot serialize <function>")
+        assert(not(ok) and tostring(err):find("cannot serialize <function>") ~= nil)
 
         local yaml_safe = require("ryaml.safe")
         local s, err = yaml_safe.encode(err)
-        assert(err ~= nil and err == "userdata is not expected type")
+        assert(err ~= nil and err:find("cannot serialize <error>") ~= nil)
     "#,
     )
     .exec()
